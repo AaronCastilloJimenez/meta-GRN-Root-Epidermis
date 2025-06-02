@@ -1,586 +1,548 @@
-/* This program is an update to the simulation of the coupling of genetic regulatory networks in a two-dimensional domain.This domain is composed of a web of cells 
-representing epidermal cells of the root of Arabidopsis thaliana.
+/*
+This program is an update to the simulation of the coupling of genetic regulatory networks in a two-dimensional domain.
+This domain is composed of a web of cells representing epidermal cells of the root of Arabidopsis thaliana.
 Each cell contains a network composed of the proteins wer, myb23, gl3/egl3, ttg1, cpc, try, etc1, ttg2, gl2, zfp5, wrky75, scm;
-the hormones ethylene, aux, and cytokinins; and the activator AC and inhibitor IC protein complexes (the latter does not occur 
-in nature; it is included to facilitate the program). The cells communicate by simulating cpc and gl3/egl3 diffusion. */
-
-	/*
-The parameters are:
-
-
-	DifA=0.01; // diff of gl3/egl3
-	DifI=0.05; // diff of cpc  
-  degcpc = 9 // degradation of cpc
-  deggl3egl3= 1 // degradatio of gl3/egl3
-
+the hormones ethylene, aux, and cytokinins; and the activator AC and inhibitor IC protein complexes.
+The cells communicate by simulating cpc and gl3/egl3 diffusion.
 */
 
-#include<stdio.h>
-#include<math.h>
-#include<stdlib.h>
-#include<time.h>
+#include <stdio.h>
+#include <math.h>   // For pow() and sqrt()
+#include <stdlib.h> // For malloc(), free(), rand(), srand()
+#include <time.h>   // For time()
+
+// --- Constants ---
+#define GRID_SIZE 24     // Dimension of the cell grid
+#define MAX_ITERATIONS 85 // Default number of iterations per simulation
+
+// --- Global parameters (user-defined or fixed conditions) ---
+float DifI;         // Diffusion parameter for CPC
+float DifA;         // Diffusion parameter for GL3/EGL3
+int degcpc;         // Degradation rate for CPC
+int deggl3egl3;     // Degradation rate for GL3/EGL3
+int citoquininas;   // Cytokinins level
+int phos;           // Phosphate level
+int salt;           // Salt stress level
+int CO2;            // CO2 level
+
+// --- Function Prototypes ---
+void Iniciales(int werx[][GRID_SIZE], int myb23x[][GRID_SIZE], int gl3egl3x[][GRID_SIZE],
+               int ttg1x[][GRID_SIZE], int cpcx[][GRID_SIZE], int tryx[][GRID_SIZE],
+               int etc1x[][GRID_SIZE], int ttg2x[][GRID_SIZE], int gl2x[][GRID_SIZE],
+               int zfp5x[][GRID_SIZE], int scmx[][GRID_SIZE], int jkdx[][GRID_SIZE],
+               int *wrky75x_ptr, int *etx_ptr, int *auxx_ptr,
+               float cpcn[][GRID_SIZE], float gl3egl3n[][GRID_SIZE],
+               int gl3egl3Local[][GRID_SIZE], int gl3egl3Dif[][GRID_SIZE],
+               int cpcLocal[][GRID_SIZE], int cpcDif[][GRID_SIZE]);
+
+int H(float x);
+
+void difundecpc(float cpcn[][GRID_SIZE], int cpcx[][GRID_SIZE], int cpcDif[][GRID_SIZE]);
+void difundegl3egl3(float gl3egl3n[][GRID_SIZE], int gl3egl3x[][GRID_SIZE], int gl3egl3Dif[][GRID_SIZE]);
+
+void Itera(int ite, int posicion[][GRID_SIZE],
+           int werx[][GRID_SIZE], int myb23x[][GRID_SIZE], int gl3egl3x[][GRID_SIZE],
+           int ttg1x[][GRID_SIZE], int cpcx[][GRID_SIZE], int tryx[][GRID_SIZE],
+           int etc1x[][GRID_SIZE], int ttg2x[][GRID_SIZE], int gl2x[][GRID_SIZE],
+           int zfp5x[][GRID_SIZE], int scmx[][GRID_SIZE], int jkdx[][GRID_SIZE],
+           int *wrky75x_ptr, int *etx_ptr, int *auxx_ptr,
+           int wery[][GRID_SIZE], int myb23y[][GRID_SIZE], int gl3egl3y[][GRID_SIZE],
+           int ttg1y[][GRID_SIZE], int cpcy[][GRID_SIZE], int tryy[][GRID_SIZE],
+           int etc1y[][GRID_SIZE], int ttg2y[][GRID_SIZE], int gl2y[][GRID_SIZE],
+           int zfp5y[][GRID_SIZE], int scmy[][GRID_SIZE], int jkdy[][GRID_SIZE],
+           int *wrky75y_ptr, int *ety_ptr, int *auxy_ptr,
+           int AC[][GRID_SIZE], int IC[][GRID_SIZE],
+           int cpcLocal[][GRID_SIZE], int gl3egl3Local[][GRID_SIZE],
+           int cpcDif[][GRID_SIZE], int gl3egl3Dif[][GRID_SIZE],
+           int cell[][GRID_SIZE], int *Hectopic_ptr, int *NHectopic_ptr);
+
+void imprimeC(int cell[][GRID_SIZE]);
+void imprimedata(int cell[][GRID_SIZE]);
 
 
-int i,j,k,l,w,u,v,m,n,d,f,coin,rvar;
-int NHectopic,Hectopic,pelos, Ptotal, NPtotal,Numsim;
-float sumaH=0;
-float sumaEH=0;
-float PromPelosTotal; //
-float PromEH;
-int contador;
-int ite;
-int veces=85; 
-int citoquininas;
-int phos;
-int salt;
-int CO2;
+// --- Function Implementations ---
 
-float vector[1000],num,suma,promedio, sigma,desv_standar;
-
-
-
-int posicion[24][24]; 
-int werx[24][24];
-int myb23x[24][24];
-int gl3egl3x[24][24];
-int ttg1x[24][24];
-int cpcx[24][24];
-int tryx[24][24];
-int etc1x[24][24];
-int ttg2x[24][24];
-int gl2x[24][24];
-int zfp5x[24][24];
-int scmx[24][24];
-int wrky75x;
-int jkdx[24][24];
-
-
-int etx;
-int auxx;
-
-int wery[24][24];
-int myb23y[24][24];
-int gl3egl3y[24][24]; 
-int ttg1y[24][24];
-int cpcy[24][24]; 
-int tryy[24][24];
-int etc1y[24][24];
-int ttg2y[24][24];
-int gl2y[24][24];
-int zfp5y[24][24];
-int scmy[24][24];
-int wrky75y;
-int jkdy[24][24];
-
-int ety;
-int auxy;
-
-int myb; 
-
-int AC[24][24];
-int IC[24][24];
-
-float cpcn[24][24]; 
-float gl3egl3n[24][24];
-
-
-int cpcLocal[24][24];
-int gl3egl3Local[24][24];
-
-int cpcDif[24][24];
-int gl3egl3Dif[24][24];
-
-int cel=24; 
-float DifI;// 
-float DifA;// 
-
-
-int degcpc;
-int deggl3egl3;
-
-int cell[24][24];
-
-
-int Iniciales(){
-   
-	for(i=0;i<cel;i++){
-		for(j=0;j<cel;j++){
-			werx[i][j]=rand()%2;
-			myb23x[i][j]=0;
-			gl3egl3x[i][j]=rand()%2;
-			gl3egl3Local[i][j]=rand()%2;
-			gl3egl3Dif[i][j]=rand()%2;
-			ttg1x[i][j]=1; //Lo fijamos
-			cpcx[i][j]=rand()%2;
-			cpcLocal[i][j]=rand()%2;
-			cpcDif[i][j]=rand()%2;
-			tryx[i][j]=rand()%2;
-			etc1x[i][j]=rand()%2;
-			ttg2x[i][j]=rand()%2;
-			gl2x[i][j]=rand()%2;
-			zfp5x[i][j]=rand()%2;
-			scmx[i][j]=rand()%2;
-			jkdx[i][j]=rand()%2;
-			wrky75x=1;
-			etx=0;
-			auxx=1; 
-			cpcn[i][j]=0; 
-			gl3egl3n[i][j]=0; 
-
-
-		}} //Cierras for's
-} //Cierra iniciales
-
-
-int H(float x){ 
-	int y;
-	if(x<=0.25)y=0;
-	if(0.25<x&&x<=1)y=1;
-	if(x>1)y=2;
-	return y;
+void Iniciales(int werx[][GRID_SIZE], int myb23x[][GRID_SIZE], int gl3egl3x[][GRID_SIZE],
+               int ttg1x[][GRID_SIZE], int cpcx[][GRID_SIZE], int tryx[][GRID_SIZE],
+               int etc1x[][GRID_SIZE], int ttg2x[][GRID_SIZE], int gl2x[][GRID_SIZE],
+               int zfp5x[][GRID_SIZE], int scmx[][GRID_SIZE], int jkdx[][GRID_SIZE],
+               int *wrky75x_ptr, int *etx_ptr, int *auxx_ptr,
+               float cpcn[][GRID_SIZE], float gl3egl3n[][GRID_SIZE],
+               int gl3egl3Local[][GRID_SIZE], int gl3egl3Dif[][GRID_SIZE],
+               int cpcLocal[][GRID_SIZE], int cpcDif[][GRID_SIZE]) {
+    int i, j;
+    for (i = 0; i < GRID_SIZE; i++) {
+        for (j = 0; j < GRID_SIZE; j++) {
+            werx[i][j] = rand() % 2;
+            myb23x[i][j] = 0;
+            gl3egl3x[i][j] = rand() % 2;
+            gl3egl3Local[i][j] = rand() % 2;
+            gl3egl3Dif[i][j] = rand() % 2;
+            ttg1x[i][j] = 1; // Fixed
+            cpcx[i][j] = rand() % 2;
+            cpcLocal[i][j] = rand() % 2;
+            cpcDif[i][j] = rand() % 2;
+            tryx[i][j] = rand() % 2;
+            etc1x[i][j] = rand() % 2;
+            ttg2x[i][j] = rand() % 2;
+            gl2x[i][j] = rand() % 2;
+            zfp5x[i][j] = rand() % 2;
+            scmx[i][j] = rand() % 2;
+            jkdx[i][j] = rand() % 2;
+            cpcn[i][j] = 0;
+            gl3egl3n[i][j] = 0;
+        }
+    }
+    *wrky75x_ptr = 1;
+    *etx_ptr = 0;
+    *auxx_ptr = 1;
 }
 
-
-difundecpc(){ 
-	for(i=0;i<cel;i++){
-		for(j=0;j<cel;j++){
-
-		
-
-			if(i==0){
-				if(j==0){
-				cpcn[i][j]=cpcx[i][j]+DifI*(cpcx[i+1][j]+cpcx[i][j+1]+cpcx[i][cel-1]-3*cpcx[i][j]);
-				}
-				else if(j==(cel-1)){
-				cpcn[i][j]=cpcx[i][j]+DifI*(cpcx[i][j-1]+cpcx[i+1][j]+cpcx[i][0]-3*cpcx[i][j]);
-				}
-				else{
-				cpcn[i][j]=cpcx[i][j]+DifI*(cpcx[i+1][j]+cpcx[i][j+1]+cpcx[i][j-1]-3*cpcx[i][j]);
-				}
-			}
-
-			else if(i==(cel-1)){
-				if(j==0){
-				cpcn[i][j]=cpcx[i][j]+DifI*(cpcx[i-1][j]+cpcx[i][j+1]+cpcx[i][cel-1]-3*cpcx[i][j]);
-				}
-				else if(j==(cel-1)){
-				cpcn[i][j]=cpcx[i][j]+DifI*(cpcx[i-1][j]+cpcx[i][j-1]+cpcx[i][0]-3*cpcx[i][j]);
-				}
-				else{
-				cpcn[i][j]=cpcx[i][j]+DifI*(cpcx[i-1][j]+cpcx[i][j+1]+cpcx[i][j-1]-3*cpcx[i][j]);
-				}
-			}
-
-			else if(j==0&&i!=(cel-1)&&i!=0){
-				cpcn[i][j]=cpcx[i][j]+DifI*(cpcx[i-1][j]+cpcx[i][j+1]+cpcx[i+1][j]+cpcx[i][cel-1]-4*cpcx[i][j]);
-			}
-
-			else if(j==(cel-1)&&i!=(cel-1)&&i!=0){
-				cpcn[i][j]=cpcx[i][j]+DifI*(cpcx[i-1][j]+cpcx[i+1][j]+cpcx[i][j-1]+cpcx[i][0]-4*cpcx[i][j]);
-
-			else{
-			cpcn[i][j]=cpcx[i][j]+DifI*(cpcx[i+1][j]+cpcx[i-1][j]+cpcx[i][j+1]+cpcx[i][j-1]-4*cpcx[i][j]);
-			}
-
-
-			cpcDif[i][j]=H(cpcn[i][j]);
-
-		}//
-	}//
-
-}//¿
-
-difundegl3egl3(){)
-	for(i=0;i<cel;i++){
-		for(j=0;j<cel;j++){
-
-
-				if(i==0){
-					if(j==0){
-						gl3egl3n[i][j]=gl3egl3x[i][j]+DifA*(gl3egl3x[i+1][j]+gl3egl3x[i][j+1]+gl3egl3x[i][cel-1]-3*gl3egl3x[i][j]);
-					}
-					else if(j==(cel-1)){
-						gl3egl3n[i][j]=gl3egl3x[i][j]+DifA*(gl3egl3x[i][j-1]+gl3egl3x[i+1][j]+gl3egl3x[i][0]-3*gl3egl3x[i][j]);
-					}
-					else{
-						gl3egl3n[i][j]=gl3egl3x[i][j]+DifA*(gl3egl3x[i+1][j]+gl3egl3x[i][j+1]+gl3egl3x[i][j-1]-3*gl3egl3x[i][j]);
-					}
-				}
-
-				else if(i==(cel-1)){
-					if(j==0){
-						gl3egl3n[i][j]=gl3egl3x[i][j]+DifA*(gl3egl3x[i-1][j]+gl3egl3x[i][j+1]+gl3egl3x[i][cel-1]-3*gl3egl3x[i][j]);
-					}
-					else if(j==(cel-1)){
-						gl3egl3n[i][j]=gl3egl3x[i][j]+DifA*(gl3egl3x[i-1][j]+gl3egl3x[i][j-1]+gl3egl3x[i][0]-3*gl3egl3x[i][j]);
-					}
-					else{
-						gl3egl3n[i][j]=gl3egl3x[i][j]+DifA*(gl3egl3x[i-1][j]+gl3egl3x[i][j+1]+gl3egl3x[i][j-1]-3*gl3egl3x[i][j]);
-					}
-				}
-
-				else if(j==0&&i!=(cel-1)&&i!=0){
-					gl3egl3n[i][j]=gl3egl3x[i][j]+DifA*(gl3egl3x[i-1][j]+gl3egl3x[i][j+1]+gl3egl3x[i+1][j]+gl3egl3x[i][cel-1]-4*gl3egl3x[i][j]);
-				}
-
-				else if(j==(cel-1)&&i!=(cel-1)&&i!=0){
-					gl3egl3n[i][j]=gl3egl3x[i][j]+DifA*(gl3egl3x[i-1][j]+gl3egl3x[i+1][j]+gl3egl3x[i][j-1]+gl3egl3x[i][0]-4*gl3egl3x[i][j]);
-				}
-
-				else{
-					gl3egl3n[i][j]=gl3egl3x[i][j]+DifA*(gl3egl3x[i+1][j]+gl3egl3x[i-1][j]+gl3egl3x[i][j+1]+gl3egl3x[i][j-1]-4*gl3egl3x[i][j]);
-				}
-
-
-			gl3egl3Dif[i][j]=H(gl3egl3n[i][j]);
-
-		}//
-	}//
-
-}//
-
-int Itera() { 
-
-	//Para cada c�lula...
-	for(i=0;i<cel;i++){
-		for(j=0;j<cel;j++){
-
-			//IC
-			if(cpcx[i][j]==0&&tryx[i][j]==0&&etc1x[i][j]==0) IC[i][j]=0;
-			if(cpcx[i][j]==0&&tryx[i][j]==0&&etc1x[i][j]==1) IC[i][j]=0;
-			if(cpcx[i][j]==0&&tryx[i][j]==1&&etc1x[i][j]==0) IC[i][j]=0;
-			if(cpcx[i][j]==0&&tryx[i][j]==1&&etc1x[i][j]==1) IC[i][j]=1;
-			if(cpcx[i][j]==0&&tryx[i][j]==2&&etc1x[i][j]==0) IC[i][j]=1;
-			if(cpcx[i][j]==0&&tryx[i][j]==2&&etc1x[i][j]==1) IC[i][j]=2;
-			if(cpcx[i][j]==1&&tryx[i][j]==0&&etc1x[i][j]==0) IC[i][j]=1;
-			if(cpcx[i][j]==1&&tryx[i][j]==0&&etc1x[i][j]==1) IC[i][j]=1;
-			if(cpcx[i][j]==1&&tryx[i][j]==1&&etc1x[i][j]==0) IC[i][j]=1;
-			if(cpcx[i][j]==1&&tryx[i][j]==1&&etc1x[i][j]==1) IC[i][j]=1;
-			if(cpcx[i][j]==1&&tryx[i][j]==2&&etc1x[i][j]==0) IC[i][j]=2;
-			if(cpcx[i][j]==1&&tryx[i][j]==2&&etc1x[i][j]==1) IC[i][j]=2;
-			if(cpcx[i][j]==2&&tryx[i][j]==0&&etc1x[i][j]==0) IC[i][j]=1;
-			if(cpcx[i][j]==2&&tryx[i][j]==0&&etc1x[i][j]==1) IC[i][j]=2;
-			if(cpcx[i][j]==2&&tryx[i][j]==1&&etc1x[i][j]==0) IC[i][j]=2;
-			if(cpcx[i][j]==2&&tryx[i][j]==1&&etc1x[i][j]==1) IC[i][j]=2;
-			if(cpcx[i][j]==2&&tryx[i][j]==2&&etc1x[i][j]==0) IC[i][j]=2;
-			if(cpcx[i][j]==2&&tryx[i][j]==2&&etc1x[i][j]==1) IC[i][j]=2;
-
-
-      myb=werx[i][j]+myb23x[i][j];
-
-			//MBW
-
-			if(gl3egl3x[i][j]==0)AC[i][j]=0;
-			if(myb==0)AC[i][j]=0;
-			if(gl3egl3x[i][j]==1&&ttg1x[i][j]==0)AC[i][j]=0;
-
-			if(gl3egl3x[i][j]==1&&ttg1x[i][j]==1&&myb==1)AC[i][j]=0;
-
-			if(gl3egl3x[i][j]==1&&ttg1x[i][j]==1&&myb==2&&ttg2x[i][j]==0&&IC[i][j]==0)AC[i][j]=1;
-			if(gl3egl3x[i][j]==1&&ttg1x[i][j]==1&&myb==2&&ttg2x[i][j]==0&&IC[i][j]==1)AC[i][j]=0;
-			if(gl3egl3x[i][j]==1&&ttg1x[i][j]==1&&myb==2&&ttg2x[i][j]==0&&IC[i][j]==2)AC[i][j]=0;
-			if(gl3egl3x[i][j]==1&&ttg1x[i][j]==1&&myb==2&&ttg2x[i][j]==1&&IC[i][j]==0)AC[i][j]=1;
-			if(gl3egl3x[i][j]==1&&ttg1x[i][j]==1&&myb==2&&ttg2x[i][j]==1&&IC[i][j]==1)AC[i][j]=0;
-			if(gl3egl3x[i][j]==1&&ttg1x[i][j]==1&&myb==2&&ttg2x[i][j]==1&&IC[i][j]==2)AC[i][j]=0;
-
-			if(gl3egl3x[i][j]==1&&ttg1x[i][j]==1&&myb==3&&ttg2x[i][j]==0&&IC[i][j]==0)AC[i][j]=1;
-			if(gl3egl3x[i][j]==1&&ttg1x[i][j]==1&&myb==3&&ttg2x[i][j]==0&&IC[i][j]==1)AC[i][j]=0;
-			if(gl3egl3x[i][j]==1&&ttg1x[i][j]==1&&myb==3&&ttg2x[i][j]==0&&IC[i][j]==2)AC[i][j]=0;
-			if(gl3egl3x[i][j]==1&&ttg1x[i][j]==1&&myb==3&&ttg2x[i][j]==1&&IC[i][j]==0)AC[i][j]=1;
-			if(gl3egl3x[i][j]==1&&ttg1x[i][j]==1&&myb==3&&ttg2x[i][j]==1&&IC[i][j]==1)AC[i][j]=1;
-			if(gl3egl3x[i][j]==1&&ttg1x[i][j]==1&&myb==3&&ttg2x[i][j]==1&&IC[i][j]==2)AC[i][j]=0;
-
-			if(gl3egl3x[i][j]==2&&ttg1x[i][j]==1&&myb==1&&ttg2x[i][j]==0&&IC[i][j]==0)AC[i][j]=1;
-			if(gl3egl3x[i][j]==2&&ttg1x[i][j]==1&&myb==1&&ttg2x[i][j]==0&&IC[i][j]==1)AC[i][j]=0;
-			if(gl3egl3x[i][j]==2&&ttg1x[i][j]==1&&myb==1&&ttg2x[i][j]==0&&IC[i][j]==2)AC[i][j]=0;
-			if(gl3egl3x[i][j]==2&&ttg1x[i][j]==1&&myb==1&&ttg2x[i][j]==1&&IC[i][j]==0)AC[i][j]=1;
-			if(gl3egl3x[i][j]==2&&ttg1x[i][j]==1&&myb==1&&ttg2x[i][j]==1&&IC[i][j]==1)AC[i][j]=1;
-			if(gl3egl3x[i][j]==2&&ttg1x[i][j]==1&&myb==1&&ttg2x[i][j]==1&&IC[i][j]==2)AC[i][j]=0;
-
-			if(gl3egl3x[i][j]==2&&ttg1x[i][j]==1&&myb==2&&ttg2x[i][j]==0&&IC[i][j]==0)AC[i][j]=1;
-			if(gl3egl3x[i][j]==2&&ttg1x[i][j]==1&&myb==2&&ttg2x[i][j]==0&&IC[i][j]==1)AC[i][j]=0;
-			if(gl3egl3x[i][j]==2&&ttg1x[i][j]==1&&myb==2&&ttg2x[i][j]==0&&IC[i][j]==2)AC[i][j]=0;
-			if(gl3egl3x[i][j]==2&&ttg1x[i][j]==1&&myb==2&&ttg2x[i][j]==1&&IC[i][j]==0)AC[i][j]=1;
-			if(gl3egl3x[i][j]==2&&ttg1x[i][j]==1&&myb==2&&ttg2x[i][j]==1&&IC[i][j]==1)AC[i][j]=1;
-			if(gl3egl3x[i][j]==2&&ttg1x[i][j]==1&&myb==2&&ttg2x[i][j]==1&&IC[i][j]==2)AC[i][j]=1;
-
-			if(gl3egl3x[i][j]==2&&ttg1x[i][j]==1&&myb==3&&ttg2x[i][j]==0&&IC[i][j]==0)AC[i][j]=1;
-			if(gl3egl3x[i][j]==2&&ttg1x[i][j]==1&&myb==3&&ttg2x[i][j]==0&&IC[i][j]==1)AC[i][j]=1;
-			if(gl3egl3x[i][j]==2&&ttg1x[i][j]==1&&myb==3&&ttg2x[i][j]==0&&IC[i][j]==2)AC[i][j]=1;
-			if(gl3egl3x[i][j]==2&&ttg1x[i][j]==1&&myb==3&&ttg2x[i][j]==1&&IC[i][j]==0)AC[i][j]=2;
-			if(gl3egl3x[i][j]==2&&ttg1x[i][j]==1&&myb==3&&ttg2x[i][j]==1&&IC[i][j]==1)AC[i][j]=1;
-			if(gl3egl3x[i][j]==2&&ttg1x[i][j]==1&&myb==3&&ttg2x[i][j]==1&&IC[i][j]==2)AC[i][j]=1;
-
-			//WER.
-			if (scmx[i][j]==0)wery[i][j]=2;
-			else {
-				if(scmx[i][j]==1&&salt==1)wery[i][j]=1;
-				else wery[i][j]=0;
-			}
-
-			//TTG2
-			if (AC[i][j]==0)ttg2y[i][j]=0;
-			if (AC[i][j]==1)ttg2y[i][j]=1;
-			if (AC[i][j]==2)ttg2y[i][j]=1;
-
-      //MYB23
-      if (ite<10)myb23y[i][j]=0;
-			if (AC[i][j]==0&&(!(ite<25)))myb23y[i][j]=0;
-			if (AC[i][j]==1&&(!(ite<25)))myb23y[i][j]=1;
-			if (AC[i][j]==2&&(!(ite<25)))myb23y[i][j]=1;
-
-			//ETC1
-			if (AC[i][j]==0&&auxx==0)etc1y[i][j]=0;
-			if (AC[i][j]==0&&auxx==1)etc1y[i][j]=0;
-			if (AC[i][j]==0&&auxx==2)etc1y[i][j]=1;
-			if (AC[i][j]==1&&auxx==0)etc1y[i][j]=0;
-			if (AC[i][j]==1&&auxx==1)etc1y[i][j]=1;
-			if (AC[i][j]==1&&auxx==2)etc1y[i][j]=1;
-			if (AC[i][j]==2&&auxx==0)etc1y[i][j]=1;
-			if (AC[i][j]==2&&auxx==1)etc1y[i][j]=1;
-			if (AC[i][j]==2&&auxx==2)etc1y[i][j]=1;
-
-			//GL3-EGL3
-			if (AC[i][j]==0&&cpcx[i][j]==0)gl3egl3Local[i][j]=1;
-			if (AC[i][j]==0&&cpcx[i][j]==1)gl3egl3Local[i][j]=2;
-			if (AC[i][j]==0&&cpcx[i][j]==2)gl3egl3Local[i][j]=2;
-			if (AC[i][j]==1&&cpcx[i][j]==0)gl3egl3Local[i][j]=0;
-			if (AC[i][j]==1&&cpcx[i][j]==1)gl3egl3Local[i][j]=1;
-			if (AC[i][j]==1&&cpcx[i][j]==2)gl3egl3Local[i][j]=1;
-			if (AC[i][j]==2)gl3egl3Local[i][j]=0;
-
-			//CPC
-			if (AC[i][j]==2||(AC[i][j]!=0&&(auxx==2||(auxx!=0&&(wrky75x==0||zfp5x[i][j]==2))))) cpcLocal[i][j]=2;
-			else {
-				if ((AC[i][j]==0&&auxx==2)||(AC[i][j]==1&&(auxx==1&&zfp5x[i][j]<2&&wrky75x<2))) cpcLocal[i][j]=1;
-				else cpcLocal[i][j]=0;
-			}
-
-
-			//ZFP5
-			if (etx==0&&citoquininas==0)zfp5y[i][j]=0;
-			if (etx==0&&citoquininas==1)zfp5y[i][j]=1;
-			if (etx==0&&citoquininas==2)zfp5y[i][j]=2;
-			if (etx==1&&citoquininas==0)zfp5y[i][j]=1;
-			if (etx==1&&citoquininas==1)zfp5y[i][j]=2;
-			if (etx==1&&citoquininas==2)zfp5y[i][j]=2;
-
-			//TRY
-			if ((AC[i][j]==2&&auxx!=0)||(AC[i][j]!=0&&auxx!=0&&wrky75x==0)) tryy[i][j]=2;
-			else {
-				if (AC[i][j]==1&&auxx==1&&wrky75x==1) tryy[i][j]=1;
-				else tryy[i][j]=0;
-			}
-
-
-			//WRKY75
-			if (phos==0)wrky75y=2;
-			if (phos==1)wrky75y=1;
-			if (phos==2)wrky75y=0;
-
-			//AUX
-			if (CO2==0&&phos==0&&wrky75x==0)auxy=1;
-			if (CO2==0&&phos==0&&wrky75x==1)auxy=1;
-			if (CO2==0&&phos==0&&wrky75x==2)auxy=2;
-			if (CO2==0&&phos==1)auxy=1;
-			if (CO2==0&&phos==2)auxy=0;
-			if (CO2==1&&phos==0)auxy=2;
-			if (CO2==1&&phos==1)auxy=2;
-			if (CO2==1&&phos==2)auxy=1;
-
-
-
-			//Ethylene
-			if (phos == 0) ety=1;
-			else ety=CO2;
-			// reglas jkd
-			if (posicion[i][j]==1) jkdy[i][j]=1;
-			else jkdy[i][j]=0;
-
-			//SCM
-			if (jkdy[i][j]==1 && IC[i][j]>0 && AC[i][j]<2) scmy[i][j]=1;
-			else scmy[i][j]=0;
-
-			//GL2
-			if(AC[i][j]==0)gl2y[i][j]=0;
-			if(AC[i][j]>0)gl2y[i][j]=1;
-
-			// Tricoblasto = 1, Atricoblasto = 0
-			if(gl2y[i][j]==0)cell[i][j]=1; 
-			if(gl2y[i][j]==1)cell[i][j]=0; 
-
-
-			coin=rand()%10;
-			if(coin<deggl3egl3)rvar=1;
-			else rvar=0;
-			gl3egl3y[i][j]=(gl3egl3Local[i][j]+gl3egl3Dif[i][j]-rvar);
-			if(gl3egl3y[i][j]>2)gl3egl3y[i][j]=2;
-			if(gl3egl3y[i][j]<0)gl3egl3y[i][j]=0;
-
-			coin=rand()%10;
-			if(coin<degcpc)rvar=1;
-			else rvar=0;
-			cpcy[i][j]=(cpcLocal[i][j]+cpcDif[i][j]-rvar);
-			if(cpcy[i][j]>2)cpcy[i][j]=2;
-			if(cpcy[i][j]<0)cpcy[i][j]=0;
-
-		}//cierra j
-	} //cierra i
-
-	//Primero aplicas las reglas a toda la matriz y defines las c�lulas con base en eso. Despu�s cambias x por y
-	for(i=0;i<cel;i++){//aqui el vector actualizado se convierte en la semilla de la sig. iteracion
-		for(j=0;j<cel;j++){
-			werx[i][j]=wery[i][j];
-			myb23x[i][j]=myb23y[i][j];
-			gl3egl3x[i][j]=gl3egl3y[i][j];
-			cpcx[i][j]=cpcy[i][j];
-			tryx[i][j]=tryy[i][j];
-			etc1x[i][j]=etc1y[i][j];
-			ttg2x[i][j]=ttg2y[i][j];
-			gl2x[i][j]=gl2y[i][j];
-			scmx[i][j]=scmy[i][j];
-			wrky75x=wrky75y;
-			auxx=auxy;
-                        etx=ety;
-			zfp5x[i][j]=zfp5y[i][j];
-		}
-	}
-
-	if(ite==(veces-1)){
-	Hectopic=0;
-		for(i=0;i<cel;i++){
-			for(j=0;j<cel;j++){
-				if((j%(3)!=0)&&(cell[i][j]==1)) Hectopic++;
-			}
-		}
-	}
-
-	if(ite==(veces-1)){
-	NHectopic=0;
-		for(i=0;i<cel;i++){
-			for(j=0;j<cel;j++){
-				if((j%(3)==0)&&(cell[i][j]==0)) NHectopic++;
-			}
-		}
-	}
-} //Cierra itera
-
-void imprimeC(){
-	for (k=0;k<cel;k++){
-		for(l=0;l<cel;l++){
-			printf("%d ", cell[k][l]);
-			}puts("");
-	}puts("");
-
+// Threshold function
+int H(float x) {
+    if (x <= 0.25) return 0;
+    if (x > 0.25 && x <= 1) return 1;
+    return 2;
 }
 
+void difundecpc(float cpcn[][GRID_SIZE], int cpcx[][GRID_SIZE], int cpcDif[][GRID_SIZE]) {
+    int i, j;
+    for (i = 0; i < GRID_SIZE; i++) {
+        for (j = 0; j < GRID_SIZE; j++) {
+            int i_plus_1 = (i + 1) % GRID_SIZE;
+            int i_minus_1 = (i - 1 + GRID_SIZE) % GRID_SIZE;
+            int j_plus_1 = (j + 1) % GRID_SIZE;
+            int j_minus_1 = (j - 1 + GRID_SIZE) % GRID_SIZE;
 
-void imprimedata(){
-FILE *dat=fopen("WT_patron.dat","w");
-if (dat)
-{
-    	for (k=0;k<cel;k++){
-                for(l=0;l<cel;l++){
-                fprintf(dat,"%d ", cell[k][l]);
-                }
-                fprintf(dat,"\n");
-    	}
-    	fprintf(dat,"\n");
-}
-}
-
-void imprimeVector(){
-	for (k=0;k<cel;k++){
-		for(l=0;l<cel;l++){
-			printf("%d %d %d %d %d %d %d %d %d ||", AC[k][l],IC[k][l],werx[k][l],myb23x[k][l],gl2x[k][l],gl3egl3x[k][l],ttg1x[k][l],cpcx[k][l],tryx[k][l],etc1x[k][l],ttg2x[k][l],scmx[k][l],zfp5x[k][l]);
-		}puts("");
-	}puts("");
-
+            cpcn[i][j] = (float)cpcx[i][j] + DifI * (
+                (float)cpcx[i_plus_1][j] +
+                (float)cpcx[i_minus_1][j] +
+                (float)cpcx[i][j_plus_1] +
+                (float)cpcx[i][j_minus_1] -
+                4.0 * (float)cpcx[i][j]
+            );
+            cpcDif[i][j] = H(cpcn[i][j]);
+        }
+    }
 }
 
-
-
-main() {
-srand(time(NULL)); 
-
-	for(i=0;i<cel;i++){ 
-		for(j=0;j<cel;j++){
-			if(j%(3)==0) posicion[i][j]=1;
-			else posicion[i][j]=0;
-		}
-	}
-	 system("color 70");
-
-	
-	citoquininas=1;
-	salt=0;
-	CO2=0;
-	num=0,suma=0,promedio=0,sigma=0,desv_standar=0;i=0;
-
-
-    printf("\n Enter the parameters for the simulation of the continuous variables of the network coupling.\n");
-    printf("\n The diffusion parameter for CPC is: ");
-    scanf("%f",&DifI); 
-    printf("\n The diffusion parameter for EGL3/GL3 is: ");
-    scanf("%f",&DifA);
-    printf("\n The degradation parameter for CPC is:");
-    scanf("%d",&degcpc); 
-    printf("\n The degradation parameter for EGL3/GL3 is:");
-    scanf("%d",&deggl3egl3);
-    printf("\n Enter the phosphate value: 0)Low 1)normal, 2)High \n");
-    scanf("%d", &phos); 
-    printf("\n Enter the total number of simulations \n ");
-	scanf("%d", &Numsim);
-
-
-
-
-for (contador=1; contador<=Numsim; contador++){
-
-	Iniciales();
-
-		for (ite=0;ite<veces;ite++){
+void difundegl3egl3(float gl3egl3n[][GRID_SIZE], int gl3egl3x[][GRID_SIZE], int gl3egl3Dif[][GRID_SIZE]) {
+    int i, j;
+    for (i = 0; i < GRID_SIZE; i++) {
+        for (j = 0; j < GRID_SIZE; j++) {
+            int i_plus_1 = (i + 1) % GRID_SIZE;
+            int i_minus_1 = (i - 1 + GRID_SIZE) % GRID_SIZE;
+            int j_plus_1 = (j + 1) % GRID_SIZE;
+            int j_minus_1 = (j - 1 + GRID_SIZE) % GRID_SIZE;
             
-			Itera();
-
-		
-			difundecpc();
-			difundegl3egl3();
-
-			//while(i<Numsim){
-        //for (i=0;i<Numsim;i++) vector[i]=Hectopic;}
-		}
-
-        Ptotal=Hectopic+(140-NHectopic);
-        NPtotal= 360-NHectopic;
-        printf("\n The total hair number in N-position is: ");
-        printf("%d", Hectopic); 
-		printf(" \n The total hair number is: ");
-		printf("%d\n",Ptotal);
-        sumaH=sumaH+Ptotal;
-        sumaEH=sumaEH+Hectopic;
-		 printf("\n The total hair number in H-position is:  ");
-		printf("%f \n",sumaH);
-		 printf("\n The total hair number in N-position is:  ");
-		printf("%f \n",sumaEH);
-
-
-
+            gl3egl3n[i][j] = (float)gl3egl3x[i][j] + DifA * (
+                (float)gl3egl3x[i_plus_1][j] +
+                (float)gl3egl3x[i_minus_1][j] +
+                (float)gl3egl3x[i][j_plus_1] +
+                (float)gl3egl3x[i][j_minus_1] -
+                4.0 * (float)gl3egl3x[i][j]
+            );
+            gl3egl3Dif[i][j] = H(gl3egl3n[i][j]);
+        }
+    }
 }
-PromPelosTotal=sumaH/Numsim;
-PromEH=sumaEH/Numsim;
 
-        printf("\n The mean total hairs is: \n");
-        printf("%.1f",PromPelosTotal);
-        printf("\n The mean of hairs in hair-position is: \n");
-        printf("%.1f",PromEH);
-        printf("\n This is the spatial pattern for the parameters defined above, values ​​of 1 are hairs and 0 are non-hairs. \n");
-        imprimeC(); 
-        //printf("\n The attractors are: \n");
-        //imprimeVector();
-        puts("");
-        imprimedata();
-        printf(vector);
+void Itera(int ite, int posicion[][GRID_SIZE],
+           int werx[][GRID_SIZE], int myb23x[][GRID_SIZE], int gl3egl3x[][GRID_SIZE],
+           int ttg1x[][GRID_SIZE], int cpcx[][GRID_SIZE], int tryx[][GRID_SIZE],
+           int etc1x[][GRID_SIZE], int ttg2x[][GRID_SIZE], int gl2x[][GRID_SIZE],
+           int zfp5x[][GRID_SIZE], int scmx[][GRID_SIZE], int jkdx[][GRID_SIZE],
+           int *wrky75x_ptr, int *etx_ptr, int *auxx_ptr,
+           int wery[][GRID_SIZE], int myb23y[][GRID_SIZE], int gl3egl3y[][GRID_SIZE],
+           int ttg1y[][GRID_SIZE], int cpcy[][GRID_SIZE], int tryy[][GRID_SIZE],
+           int etc1y[][GRID_SIZE], int ttg2y[][GRID_SIZE], int gl2y[][GRID_SIZE],
+           int zfp5y[][GRID_SIZE], int scmy[][GRID_SIZE], int jkdy[][GRID_SIZE],
+           int *wrky75y_ptr, int *ety_ptr, int *auxy_ptr,
+           int AC[][GRID_SIZE], int IC[][GRID_SIZE],
+           int cpcLocal[][GRID_SIZE], int gl3egl3Local[][GRID_SIZE],
+           int cpcDif[][GRID_SIZE], int gl3egl3Dif[][GRID_SIZE],
+           int cell[][GRID_SIZE], int *Hectopic_ptr, int *NHectopic_ptr) {
+    
+    int i, j;
+    int myb;
+    int coin, rvar;
 
-        //imprimeVector();
-}//main
+    int current_wrky75x = *wrky75x_ptr;
+    int current_etx = *etx_ptr;
+    int current_auxx = *auxx_ptr;
+
+    for (i = 0; i < GRID_SIZE; i++) {
+        for (j = 0; j < GRID_SIZE; j++) {
+            // IC (Inhibitor Complex)
+            if (cpcx[i][j] == 0 && tryx[i][j] == 0 && etc1x[i][j] == 0) IC[i][j] = 0;
+            else if (cpcx[i][j] == 0 && tryx[i][j] == 0 && etc1x[i][j] == 1) IC[i][j] = 0;
+            else if (cpcx[i][j] == 0 && tryx[i][j] == 1 && etc1x[i][j] == 0) IC[i][j] = 0;
+            else if (cpcx[i][j] == 0 && tryx[i][j] == 1 && etc1x[i][j] == 1) IC[i][j] = 1;
+            else if (cpcx[i][j] == 0 && tryx[i][j] == 2 && etc1x[i][j] == 0) IC[i][j] = 1;
+            else if (cpcx[i][j] == 0 && tryx[i][j] == 2 && etc1x[i][j] == 1) IC[i][j] = 2;
+            else if (cpcx[i][j] == 1 && tryx[i][j] == 0 && etc1x[i][j] == 0) IC[i][j] = 1;
+            else if (cpcx[i][j] == 1 && tryx[i][j] == 0 && etc1x[i][j] == 1) IC[i][j] = 1;
+            else if (cpcx[i][j] == 1 && tryx[i][j] == 1 && etc1x[i][j] == 0) IC[i][j] = 1;
+            else if (cpcx[i][j] == 1 && tryx[i][j] == 1 && etc1x[i][j] == 1) IC[i][j] = 1;
+            else if (cpcx[i][j] == 1 && tryx[i][j] == 2 && etc1x[i][j] == 0) IC[i][j] = 2;
+            else if (cpcx[i][j] == 1 && tryx[i][j] == 2 && etc1x[i][j] == 1) IC[i][j] = 2;
+            else if (cpcx[i][j] == 2 && tryx[i][j] == 0 && etc1x[i][j] == 0) IC[i][j] = 1;
+            else if (cpcx[i][j] == 2 && tryx[i][j] == 0 && etc1x[i][j] == 1) IC[i][j] = 2;
+            else if (cpcx[i][j] == 2 && tryx[i][j] == 1 && etc1x[i][j] == 0) IC[i][j] = 2;
+            else if (cpcx[i][j] == 2 && tryx[i][j] == 1 && etc1x[i][j] == 1) IC[i][j] = 2;
+            else if (cpcx[i][j] == 2 && tryx[i][j] == 2 && etc1x[i][j] == 0) IC[i][j] = 2;
+            else if (cpcx[i][j] == 2 && tryx[i][j] == 2 && etc1x[i][j] == 1) IC[i][j] = 2;
+            else IC[i][j] = 0;
+
+            myb = werx[i][j] + myb23x[i][j];
+
+            // AC (Activator Complex) - MBW (MYB-bHLH-WDR)
+            AC[i][j] = 0; 
+            if (gl3egl3x[i][j] == 0 || myb == 0) AC[i][j] = 0;
+            else if (gl3egl3x[i][j] == 1 && ttg1x[i][j] == 0) AC[i][j] = 0;
+            else if (gl3egl3x[i][j] == 1 && ttg1x[i][j] == 1 && myb == 1) AC[i][j] = 0;
+            else if (gl3egl3x[i][j] == 1 && ttg1x[i][j] == 1 && myb == 2) {
+                if (ttg2x[i][j] == 0 && IC[i][j] == 0) AC[i][j] = 1;
+                else if (ttg2x[i][j] == 1 && IC[i][j] == 0) AC[i][j] = 1;
+            } else if (gl3egl3x[i][j] == 1 && ttg1x[i][j] == 1 && myb == 3) {
+                if (ttg2x[i][j] == 0 && IC[i][j] == 0) AC[i][j] = 1;
+                else if (ttg2x[i][j] == 1 && IC[i][j] == 0) AC[i][j] = 1;
+                else if (ttg2x[i][j] == 1 && IC[i][j] == 1) AC[i][j] = 1;
+            } else if (gl3egl3x[i][j] == 2 && ttg1x[i][j] == 1 && myb == 1) {
+                if (ttg2x[i][j] == 0 && IC[i][j] == 0) AC[i][j] = 1;
+                else if (ttg2x[i][j] == 1 && IC[i][j] == 0) AC[i][j] = 1;
+                else if (ttg2x[i][j] == 1 && IC[i][j] == 1) AC[i][j] = 1;
+            } else if (gl3egl3x[i][j] == 2 && ttg1x[i][j] == 1 && myb == 2) {
+                if (ttg2x[i][j] == 0 && IC[i][j] == 0) AC[i][j] = 1;
+                else if (ttg2x[i][j] == 1 && IC[i][j] == 0) AC[i][j] = 1;
+                else if (ttg2x[i][j] == 1 && IC[i][j] == 1) AC[i][j] = 1;
+                else if (ttg2x[i][j] == 1 && IC[i][j] == 2) AC[i][j] = 1;
+            } else if (gl3egl3x[i][j] == 2 && ttg1x[i][j] == 1 && myb == 3) {
+                if (ttg2x[i][j] == 0 && IC[i][j] == 0) AC[i][j] = 1;
+                else if (ttg2x[i][j] == 0 && IC[i][j] == 1) AC[i][j] = 1;
+                else if (ttg2x[i][j] == 0 && IC[i][j] == 2) AC[i][j] = 1;
+                else if (ttg2x[i][j] == 1 && IC[i][j] == 0) AC[i][j] = 2;
+                else if (ttg2x[i][j] == 1 && IC[i][j] == 1) AC[i][j] = 1;
+                else if (ttg2x[i][j] == 1 && IC[i][j] == 2) AC[i][j] = 1;
+            }
+           
+            if (scmx[i][j] == 0) wery[i][j] = 2;
+            else {
+                if (scmx[i][j] == 1 && salt == 1) wery[i][j] = 1;
+                else wery[i][j] = 0;
+            }
+
+            if (AC[i][j] == 0) ttg2y[i][j] = 0;
+            else ttg2y[i][j] = 1;
+
+            myb23y[i][j] = 0; 
+            if (ite >= 10) { 
+                if (AC[i][j] == 1 && ite < 25) myb23y[i][j] = 1; 
+                else if (AC[i][j] == 2 && ite < 25) myb23y[i][j] = 1;
+                else if (AC[i][j] > 0 && ite >=25) myb23y[i][j] = 1; 
+            }
+
+            etc1y[i][j] = 0; 
+            if (AC[i][j] == 0 && current_auxx == 2) etc1y[i][j] = 1;
+            else if (AC[i][j] == 1 && current_auxx >= 1) etc1y[i][j] = 1;
+            else if (AC[i][j] == 2) etc1y[i][j] = 1;
+
+            if (AC[i][j] == 0) {
+                if (cpcx[i][j] == 0) gl3egl3Local[i][j] = 1;
+                else gl3egl3Local[i][j] = 2; 
+            } else if (AC[i][j] == 1) {
+                if (cpcx[i][j] == 0) gl3egl3Local[i][j] = 0;
+                else gl3egl3Local[i][j] = 1; 
+            } else { 
+                gl3egl3Local[i][j] = 0;
+            }
+
+            if (AC[i][j] == 2 || (AC[i][j] != 0 && (current_auxx == 2 || (current_auxx != 0 && (current_wrky75x == 0 || zfp5x[i][j] == 2))))) {
+                cpcLocal[i][j] = 2;
+            } else if ((AC[i][j] == 0 && current_auxx == 2) || (AC[i][j] == 1 && (current_auxx == 1 && zfp5x[i][j] < 2 && current_wrky75x < 2))) {
+                cpcLocal[i][j] = 1;
+            } else {
+                cpcLocal[i][j] = 0;
+            }
+
+            if (current_etx == 0) zfp5y[i][j] = citoquininas; 
+            else if (current_etx == 1) {
+                if (citoquininas == 0) zfp5y[i][j] = 1;
+                else zfp5y[i][j] = 2; 
+            }
+
+            if ((AC[i][j] == 2 && current_auxx != 0) || (AC[i][j] != 0 && current_auxx != 0 && current_wrky75x == 0)) {
+                tryy[i][j] = 2;
+            } else if (AC[i][j] == 1 && current_auxx == 1 && current_wrky75x == 1) {
+                tryy[i][j] = 1;
+            } else {
+                tryy[i][j] = 0;
+            }
+
+            if (phos == 0) *wrky75y_ptr = 2;
+            else if (phos == 1) *wrky75y_ptr = 1;
+            else *wrky75y_ptr = 0; 
+
+            if (CO2 == 0) {
+                if (phos == 0) {
+                    if (current_wrky75x == 2) *auxy_ptr = 2; else *auxy_ptr = 1;
+                } else if (phos == 1) *auxy_ptr = 1;
+                else *auxy_ptr = 0; 
+            } else { 
+                if (phos == 2) *auxy_ptr = 1; else *auxy_ptr = 2;
+            }
+
+            if (phos == 0) *ety_ptr = 1;
+            else *ety_ptr = CO2;
+
+            jkdy[i][j] = posicion[i][j]; 
+
+            if (jkdy[i][j] == 1 && IC[i][j] > 0 && AC[i][j] < 2) scmy[i][j] = 1;
+            else scmy[i][j] = 0;
+
+            if (AC[i][j] == 0) gl2y[i][j] = 0;
+            else gl2y[i][j] = 1; 
+
+            cell[i][j] = (gl2y[i][j] == 0) ? 1 : 0;
+
+            coin = rand() % 10;
+            rvar = (coin < deggl3egl3) ? 1 : 0;
+            gl3egl3y[i][j] = (gl3egl3Local[i][j] + gl3egl3Dif[i][j] - rvar);
+            if (gl3egl3y[i][j] > 2) gl3egl3y[i][j] = 2;
+            if (gl3egl3y[i][j] < 0) gl3egl3y[i][j] = 0;
+
+            coin = rand() % 10;
+            rvar = (coin < degcpc) ? 1 : 0;
+            cpcy[i][j] = (cpcLocal[i][j] + cpcDif[i][j] - rvar);
+            if (cpcy[i][j] > 2) cpcy[i][j] = 2;
+            if (cpcy[i][j] < 0) cpcy[i][j] = 0;
+        } 
+    } 
+
+    for (i = 0; i < GRID_SIZE; i++) {
+        for (j = 0; j < GRID_SIZE; j++) {
+            werx[i][j] = wery[i][j];
+            myb23x[i][j] = myb23y[i][j];
+            gl3egl3x[i][j] = gl3egl3y[i][j];
+            cpcx[i][j] = cpcy[i][j];
+            tryx[i][j] = tryy[i][j];
+            etc1x[i][j] = etc1y[i][j];
+            ttg2x[i][j] = ttg2y[i][j];
+            gl2x[i][j] = gl2y[i][j];
+            scmx[i][j] = scmy[i][j];
+            zfp5x[i][j] = zfp5y[i][j];
+        }
+    }
+    *wrky75x_ptr = *wrky75y_ptr;
+    *auxx_ptr = *auxy_ptr;
+    *etx_ptr = *ety_ptr;
+
+    if (ite == (MAX_ITERATIONS - 1)) {
+        int current_Hectopic = 0;
+        int current_NHectopic = 0;
+        for (i = 0; i < GRID_SIZE; i++) {
+            for (j = 0; j < GRID_SIZE; j++) {
+                if ((posicion[i][j] == 0) && (cell[i][j] == 1)) {
+                    current_Hectopic++;
+                }
+                if ((posicion[i][j] == 1) && (cell[i][j] == 0)) {
+                    current_NHectopic++;
+                }
+            }
+        }
+        *Hectopic_ptr = current_Hectopic;
+        *NHectopic_ptr = current_NHectopic;
+    }
+}
+
+void imprimeC(int cell[][GRID_SIZE]) {
+    int k, l;
+    for (k = 0; k < GRID_SIZE; k++) {
+        for (l = 0; l < GRID_SIZE; l++) {
+            printf("%d ", cell[k][l]);
+        }
+        printf("\n"); 
+    }
+    printf("\n");
+}
+
+void imprimedata(int cell[][GRID_SIZE]) {
+    FILE *dat = fopen("WT_patron.dat", "w");
+    int k, l;
+    if (dat) {
+        for (k = 0; k < GRID_SIZE; k++) {
+            for (l = 0; l < GRID_SIZE; l++) {
+                fprintf(dat, "%d ", cell[k][l]);
+            }
+            fprintf(dat, "\n");
+        }
+        fprintf(dat, "\n");
+        fclose(dat);
+    } else {
+        perror("Error opening WT_patron.dat for writing");
+    }
+}
+
+int main() {
+    int posicion[GRID_SIZE][GRID_SIZE];
+    int werx[GRID_SIZE][GRID_SIZE], wery[GRID_SIZE][GRID_SIZE];
+    int myb23x[GRID_SIZE][GRID_SIZE], myb23y[GRID_SIZE][GRID_SIZE];
+    int gl3egl3x[GRID_SIZE][GRID_SIZE], gl3egl3y[GRID_SIZE][GRID_SIZE];
+    int ttg1x[GRID_SIZE][GRID_SIZE], ttg1y[GRID_SIZE][GRID_SIZE]; 
+    int cpcx[GRID_SIZE][GRID_SIZE], cpcy[GRID_SIZE][GRID_SIZE];
+    int tryx[GRID_SIZE][GRID_SIZE], tryy[GRID_SIZE][GRID_SIZE];
+    int etc1x[GRID_SIZE][GRID_SIZE], etc1y[GRID_SIZE][GRID_SIZE];
+    int ttg2x[GRID_SIZE][GRID_SIZE], ttg2y[GRID_SIZE][GRID_SIZE];
+    int gl2x[GRID_SIZE][GRID_SIZE], gl2y[GRID_SIZE][GRID_SIZE];
+    int zfp5x[GRID_SIZE][GRID_SIZE], zfp5y[GRID_SIZE][GRID_SIZE];
+    int scmx[GRID_SIZE][GRID_SIZE], scmy[GRID_SIZE][GRID_SIZE];
+    int jkdx[GRID_SIZE][GRID_SIZE], jkdy[GRID_SIZE][GRID_SIZE]; 
+
+    int wrky75x, wrky75y;
+    int etx, ety;
+    int auxx, auxy;
+
+    int AC[GRID_SIZE][GRID_SIZE], IC[GRID_SIZE][GRID_SIZE];
+    float cpcn[GRID_SIZE][GRID_SIZE], gl3egl3n[GRID_SIZE][GRID_SIZE];
+    int cpcLocal[GRID_SIZE][GRID_SIZE], gl3egl3Local[GRID_SIZE][GRID_SIZE];
+    int cpcDif[GRID_SIZE][GRID_SIZE], gl3egl3Dif[GRID_SIZE][GRID_SIZE];
+    
+    int cell[GRID_SIZE][GRID_SIZE];
+
+    int ite, contador, Numsim;
+    int Hectopic = 0, NHectopic = 0; 
+    float sumaH = 0, sumaEH = 0;
+    float PromPelosTotal, PromEH;
+    
+    float *Ptotal_por_simulacion = NULL;
+    float *Hectopic_por_simulacion = NULL;
+
+    int total_H_positions = 0; 
+    int total_N_positions = 0; 
+
+    int i, j; 
+
+    srand(time(NULL));
+
+    for (i = 0; i < GRID_SIZE; i++) {
+        for (j = 0; j < GRID_SIZE; j++) {
+            if (j % 3 == 0) {
+                posicion[i][j] = 1; 
+                total_H_positions++;
+            } else {
+                posicion[i][j] = 0; 
+                total_N_positions++;
+            }
+        }
+    }
+    
+    printf("\n--- Genetic Regulatory Network Simulation ---\n");
+    printf("Grid size is %d x %d.\n", GRID_SIZE, GRID_SIZE);
+    printf("Predefined H-positions: %d, N-positions: %d, Total cells: %d\n", total_H_positions, total_N_positions, GRID_SIZE*GRID_SIZE);
+
+    printf("\nEnter the parameters for the simulation:\n");
+    printf("Diffusion parameter for CPC (e.g., 0.05): ");
+    scanf("%f", &DifI);
+    printf("Diffusion parameter for EGL3/GL3 (e.g., 0.01): ");
+    scanf("%f", &DifA);
+    printf("Degradation rate for CPC (integer, e.g., 9): ");
+    scanf("%d", &degcpc);
+    printf("Degradation rate for EGL3/GL3 (integer, e.g., 1): ");
+    scanf("%d", &deggl3egl3);
+    printf("Phosphate value (0=Low, 1=Normal, 2=High): ");
+    scanf("%d", &phos);
+    citoquininas = 1; 
+    salt = 0;
+    CO2 = 0;
+
+    printf("Enter the total number of simulations to run: ");
+    scanf("%d", &Numsim);
+
+    if (Numsim > 0) {
+        Ptotal_por_simulacion = (float *)malloc(Numsim * sizeof(float));
+        Hectopic_por_simulacion = (float *)malloc(Numsim * sizeof(float));
+        if (Ptotal_por_simulacion == NULL || Hectopic_por_simulacion == NULL) {
+            perror("Error allocating memory for simulation results");
+            // Free any potentially allocated memory before exiting
+            if (Ptotal_por_simulacion != NULL) free(Ptotal_por_simulacion);
+            if (Hectopic_por_simulacion != NULL) free(Hectopic_por_simulacion);
+            return 1; 
+        }
+    } else {
+        printf("Number of simulations must be greater than 0.\n");
+        return 1;
+    }
+
+    for (contador = 1; contador <= Numsim; contador++) {
+        printf("\n--- Running Simulation %d of %d ---\n", contador, Numsim);
+        Iniciales(werx, myb23x, gl3egl3x, ttg1x, cpcx, tryx, etc1x, ttg2x, gl2x,
+                  zfp5x, scmx, jkdx, &wrky75x, &etx, &auxx,
+                  cpcn, gl3egl3n, gl3egl3Local, gl3egl3Dif, cpcLocal, cpcDif);
+
+        for (ite = 0; ite < MAX_ITERATIONS; ite++) {
+            Itera(ite, posicion,
+                  werx, myb23x, gl3egl3x, ttg1x, cpcx, tryx, etc1x, ttg2x, gl2x,
+                  zfp5x, scmx, jkdx, &wrky75x, &etx, &auxx,
+                  wery, myb23y, gl3egl3y, ttg1y, cpcy, tryy, etc1y, ttg2y, gl2y,
+                  zfp5y, scmy, jkdy, &wrky75y, &ety, &auxy,
+                  AC, IC, cpcLocal, gl3egl3Local, cpcDif, gl3egl3Dif,
+                  cell, &Hectopic, &NHectopic);
+            
+            difundecpc(cpcn, cpcx, cpcDif);
+            difundegl3egl3(gl3egl3n, gl3egl3x, gl3egl3Dif);
+        }
+
+        int Ptotal = (total_H_positions - NHectopic) + Hectopic;
+
+        printf("Results for Simulation %d:\n", contador);
+        printf("  Hairs in N-positions (ectopic): %d\n", Hectopic);
+        printf("  Non-hairs in H-positions (missing): %d\n", NHectopic);
+        printf("  Total hairs observed: %d\n", Ptotal);
+        
+        sumaH += Ptotal;
+        sumaEH += Hectopic; 
+
+        Ptotal_por_simulacion[contador - 1] = (float)Ptotal;
+        Hectopic_por_simulacion[contador - 1] = (float)Hectopic;
+    }
+
+    PromPelosTotal = (Numsim > 0) ? sumaH / Numsim : 0;
+    PromEH = (Numsim > 0) ? sumaEH / Numsim : 0;
+
+    printf("\n--- Overall Averages after %d Simulation(s) ---\n", Numsim);
+    printf("Mean total hairs: %.1f\n", PromPelosTotal);
+    printf("Mean ectopic hairs (hairs in N-position): %.1f\n", PromEH);
+
+    if (Numsim > 0) {
+        float suma_cuadrados_dif_Ptotal = 0;
+        float suma_cuadrados_dif_Hectopic = 0;
+        int k; 
+
+        for (k = 0; k < Numsim; k++) {
+            suma_cuadrados_dif_Ptotal += pow(Ptotal_por_simulacion[k] - PromPelosTotal, 2);
+            suma_cuadrados_dif_Hectopic += pow(Hectopic_por_simulacion[k] - PromEH, 2);
+        }
+
+        float varianza_Ptotal = suma_cuadrados_dif_Ptotal / Numsim; 
+        float desv_estandar_Ptotal = sqrt(varianza_Ptotal);
+
+        float varianza_Hectopic = suma_cuadrados_dif_Hectopic / Numsim; 
+        float desv_estandar_Hectopic = sqrt(varianza_Hectopic);
+
+        printf("Standard deviation of total hairs: %.2f\n", desv_estandar_Ptotal);
+        printf("Standard deviation of ectopic hairs: %.2f\n", desv_estandar_Hectopic);
+    }
+    
+    printf("\nFinal spatial pattern from the last simulation:\n(1 = hair, 0 = non-hair)\n");
+    imprimeC(cell);
+    imprimedata(cell);
+
+    if (Ptotal_por_simulacion != NULL) {
+        free(Ptotal_por_simulacion);
+    }
+    if (Hectopic_por_simulacion != NULL) {
+        free(Hectopic_por_simulacion);
+    }
+
+    return 0;
+}
